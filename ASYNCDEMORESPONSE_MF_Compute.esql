@@ -1,0 +1,42 @@
+
+
+CREATE COMPUTE MODULE ASYNCDEMORESPONSE_MF_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		-- restore the replytoqueue and repltoqgmr and msg id as correlation id
+		SET OutputRoot.MQMD = Environment.Variables.MQMD;
+		
+		-- need to construction the siebel response based on BRM response		
+		CREATE FIELD OutputRoot.XMLNSC.MOBILY_BSL_SR_REPLY.SR_HEADER_REPLY;
+		DECLARE Outref REFERENCE TO OutputRoot.XMLNSC.MOBILY_BSL_SR_REPLY.SR_HEADER_REPLY;
+		
+		--BRM response reference
+		DECLARE envReff REFERENCE TO  Environment.Variables.WholeMessage;
+		
+		--input tags and output tags same 
+		SET Outref = envReff.MOBILY_BSL_SR.SR_HEADER;
+		
+		SET OutputRoot.XMLNSC.MOBILY_BSL_SR_REPLY.MSISDN = envReff.MOBILY_BSL_SR.MSISDN;
+		SET OutputRoot.XMLNSC.MOBILY_BSL_SR_REPLY.ErrorCode ='9999';
+		SET OutputRoot.XMLNSC.MOBILY_BSL_SR_REPLY.ErrorMessage = 'Failed in backend';  
+		 
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

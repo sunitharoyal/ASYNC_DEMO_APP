@@ -1,0 +1,84 @@
+
+
+CREATE COMPUTE MODULE ASYNC_DEMO_REQUEST_MF_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		 CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		--SET Environment.variables.MQMD = InputRoot.MQMD;
+		
+		
+		SET OutputRoot.MQMD.ReplyToQ = 'RESPONSE.FLOW.QUEUE';
+		--To set the current QueueManager from the flow
+		SET OutputRoot.MQMD.ReplyToQMgr = QueueManagerName; 
+		
+		--Declared Root Tags
+		CREATE FIELD OutputRoot.XMLNSC.MOBILY_BK_SR;
+		
+		--Declared the Reference to easy readability 
+		DECLARE Output REFERENCE TO OutputRoot.XMLNSC.MOBILY_BK_SR;
+		DECLARE Input REFERENCE TO InputRoot.XMLNSC.MOBILY_BSL_SR;
+		
+		SET Output.SR_BK_HEADER.MsgFormate = Input.SR_HEADER.MsgFormate;
+		SET Output.SR_BK_HEADER.MsgVersion = Input.SR_HEADER.MsgVersion;
+		SET Output.SR_BK_HEADER.RequestorUserID = Input.SR_HEADER.RequestorUserID;
+		SET Output.SR_BK_HEADER.RequestorChannelID = Input.SR_HEADER.RequestorChannelID;
+		SET Output.SR_BK_HEADER.RequestorLanguage = Input.SR_HEADER.RequestorLanguage;
+		SET Output.SR_BK_HEADER.RequestorChannelFunction = Input.SR_HEADER.RequestorChannelFunction;
+		SET Output.SR_BK_HEADER.RequestorSecurityInfo = Input.SR_HEADER.RequestorSecurityInfo;
+		SET Output.SR_BK_HEADER.ChannelTransformationID =Input.SR_HEADER.ChannelTransformationID;
+		--SET Output.SR_BK_HEADER.SrDate = Input.SR_HEADER.SrDate;
+		
+		
+		--   20220818035501 to be changed to YYYY-MM-DDTHH:mm:SS
+		DECLARE YYYY,MM,DD,HH,mm,SS CHARACTER;
+		
+		SET YYYY = SUBSTRING(Input.SR_HEADER.SrDate FROM 1 FOR 4);
+		SET MM = SUBSTRING(Input.SR_HEADER.SrDate FROM 5 FOR 2); 
+		SET DD = SUBSTRING(Input.SR_HEADER.SrDate FROM 7 FOR 2); 
+		SET HH = SUBSTRING(Input.SR_HEADER.SrDate FROM 9 FOR 2); 
+		SET mm = SUBSTRING(Input.SR_HEADER.SrDate FROM 11 FOR 2); 
+		SET SS = SUBSTRING(Input.SR_HEADER.SrDate FROM 13 FOR 2);
+		
+		SET Output.SR_BK_HEADER.SrDate = YYYY||'-'||MM||'-'||DD||'T'||HH||':'||mm||':'||SS;
+		
+		SET Output.Linenumber = Input.MSISDN;
+		
+		DECLARE BlobMessage BLOB;
+		
+		SET BlobMessage = ASBITSTREAM(InputRoot.XMLNSC ENCODING MQENC_NATIVE CCSID InputRoot.Properties.CodedCharSetId);
+		
+		insert into Database.SR_SIEBEL_BRM_INQ_TRANS_TBL(SR_ID,MSISDN,FUNC_ID,STATUS,MESSAGE,BROKER_NAME,EXECUTION_GROUP,FLOW_NAME,CHANNEL_ID,CORREL_ID,REPLYTOQ,REPLYTOQMGR,MSG_ID)
+		values (Input.SR_HEADER.ChannelTransformationID,
+				Input.MSISDN,
+				'123',
+				1,
+				BlobMessage,
+				'INODE_TEST',
+				'IS_TEST',
+				'AsyncFlow',
+				Input.SR_HEADER.RequestorChannelID,
+				InputRoot.MQMD.CorrelId,
+				InputRoot.MQMD.ReplyToQ,
+				InputRoot.MQMD.ReplyToQMgr,
+				InputRoot.MQMD.MsgId);
+		
+				
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

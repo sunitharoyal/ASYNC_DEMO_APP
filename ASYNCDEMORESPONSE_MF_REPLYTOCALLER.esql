@@ -1,0 +1,66 @@
+
+
+CREATE COMPUTE MODULE ASYNCDEMORESPONSE_MF_REPLYTOCALLER
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		CREATE FIELD OutputRoot.MQMD;
+		SET Environment.Variables.Temp[] = PASSTHRU ('select SR_ID,REPLYTOQ,REPLYTOQMGR from SR_SIEBEL_BRM_INQ_TRANS_TBL where SR_ID=?',InputRoot.XMLNSC.MOBILY_BK_SR_REPLY.SR_BK_HEADER_REPLY.ChannelTransformationID);
+		IF EXISTS (Environment.Variables.Temp[])  THEN
+					SET OutputRoot.MQMD.ReplyToQ    = Environment.Variables.Temp.REPLYTOQ;
+					SET OutputRoot.MQMD.ReplyToQMgr = Environment.Variables.Temp.REPLYTOQMGR;
+		ELSE
+					THROW USER EXCEPTION CATALOG 'MyException' MESSAGE 1234 VALUES
+   						('No record found in transaction table for the given request',InputRoot.XMLNSC.MOBILY_BK_SR_REPLY.SR_BK_HEADER_REPLY.ChannelTransformationID);
+		END IF;
+		
+		
+--		SET OutputRoot.MQMD = Environment.variables.MQMD;
+	
+		
+		--Declared Root Tags
+		CREATE FIELD OutputRoot.XMLNSC.MOBILY_BSL_SR_REPLY;
+		--Declared the Reference to easy readability 
+		DECLARE Output REFERENCE TO OutputRoot.XMLNSC.MOBILY_BSL_SR_REPLY;
+		DECLARE Input REFERENCE TO InputRoot.XMLNSC.MOBILY_BK_SR_REPLY;
+		
+		SET Output.SR_HEADER_REPLY.MsgFormate                  = Input.SR_BK_HEADER_REPLY.MsgFormate;
+		SET Output.SR_HEADER_REPLY.MsgVersion                  = Input.SR_BK_HEADER_REPLY.MsgVersion;
+		SET Output.SR_HEADER_REPLY.RequestorUserID             = Input.SR_BK_HEADER_REPLY.RequestorUserID;
+		SET Output.SR_HEADER_REPLY.RequestorChannelID          = Input.SR_BK_HEADER_REPLY.RequestorChannelID;
+		SET Output.SR_HEADER_REPLY.RequestorLanguage           = Input.SR_BK_HEADER_REPLY.RequestorLanguage;
+		SET Output.SR_HEADER_REPLY.RequestorChannelFunction    = Input.SR_BK_HEADER_REPLY.RequestorChannelFunction;
+		SET Output.SR_HEADER_REPLY.RequestorSecurityInfo       = Input.SR_BK_HEADER_REPLY.RequestorSecurityInfo;
+		SET Output.SR_HEADER_REPLY.ChannelTransformationID     = Input.SR_BK_HEADER_REPLY.ChannelTransformationID;
+		SET Output.SR_HEADER_REPLY.SrDate                      = Input.SR_BK_HEADER_REPLY.SrDate;
+		SET Output.MSISDN                                      = Input.Linenumber;
+		SET Output.balance                                     = '300';
+		
+		IF InputRoot.XMLNSC.MOBILY_BK_SR_REPLY.ErrorCode= '0' THEN
+			
+			PASSTHRU('UPDATE SR_SIEBEL_BRM_INQ_TRANS_TBL SET STATUS = ? where SR_ID = ?',6,InputRoot.XMLNSC.MOBILY_BK_SR_REPLY.SR_BK_HEADER_REPLY.ChannelTransformationID);
+			
+		ELSE
+			PASSTHRU('UPDATE SR_SIEBEL_BRM_INQ_TRANS_TBL SET STATUS = ?  where SR_ID = ?',3,InputRoot.XMLNSC.MOBILY_BK_SR_REPLY.SR_BK_HEADER_REPLY.ChannelTransformationID);
+			
+		END IF;
+		
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
